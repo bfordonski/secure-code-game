@@ -230,16 +230,22 @@ class DB_CRUD_ops(object):
 
             res = "[METHOD EXECUTED] exec_user_script\n"
             res += "[QUERY] " + query + "\n"
+
+            # Reject multi-statement/script input from users.
             if ';' in query:
-                res += "[SCRIPT EXECUTION]"
-                cur.executescript(query)
-                db_con.commit()
-            else:
-                cur.execute(query)
-                db_con.commit()
-                query_outcome = cur.fetchall()
-                for result in query_outcome:
-                    res += "[RESULT] " + str(result)
+                return res + "[ERROR] Script execution is not allowed."
+
+            # Allow only a safe, expected query shape and parameterize user input.
+            prefix = "SELECT * FROM stocks WHERE symbol = "
+            if not query.startswith(prefix):
+                return res + "[ERROR] Unsupported query."
+
+            symbol = query[len(prefix):].strip().strip("'").strip('"')
+            cur.execute("SELECT * FROM stocks WHERE symbol = ?", (symbol,))
+            db_con.commit()
+            query_outcome = cur.fetchall()
+            for result in query_outcome:
+                res += "[RESULT] " + str(result)
             return res
 
         except sqlite3.Error as e:
